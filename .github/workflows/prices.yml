@@ -1,0 +1,29 @@
+name: daily-prices
+on:
+  schedule:
+    - cron: "37 22 * * 1-5"
+    - cron: "11 6 * * 6"
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency: { group: prices, cancel-in-progress: false }
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install --upgrade yfinance pandas curl_cffi
+      - name: Fetch prices
+        run: python fetch_prices.py
+        continue-on-error: true
+      - name: Commit
+        run: |
+          git config user.name  "prices-bot"
+          git config user.email "prices-bot@users.noreply.github.com"
+          git add -A data closes_wide.csv manifest.json
+          git diff --cached --quiet || git commit -m "prices $(date -u +%F)"
+          git push
